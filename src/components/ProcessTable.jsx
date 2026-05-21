@@ -3,6 +3,7 @@ import { Trash2, Plus } from "lucide-react";
 export default function ProcessTable({
   processes,
   setProcesses,
+  algorithm,
 }) {
   const addProcess = () => {
     const nextNum = processes.length > 0
@@ -14,6 +15,8 @@ export default function ProcessTable({
         pid: `P${nextNum}`,
         arrivalTime: 0,
         burstTime: 1,
+        priority: 1,
+        queue: 1,
       },
     ]);
   };
@@ -24,6 +27,9 @@ export default function ProcessTable({
     setProcesses(updated);
   };
 
+  const showPriority = algorithm === "Priority";
+  const showQueue = algorithm === "MLQ";
+
   return (
     <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5 relative overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -32,7 +38,7 @@ export default function ProcessTable({
             Process Control Center
           </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            Configure the arrival and burst times for each scheduling task.
+            Configure the arrival time, burst time, and specific criteria for each task.
           </p>
         </div>
 
@@ -52,6 +58,8 @@ export default function ProcessTable({
               <th className="py-4 px-4">PID</th>
               <th className="py-4 px-4">Arrival Time</th>
               <th className="py-4 px-4">Burst Time</th>
+              {showPriority && <th className="py-4 px-4">Priority</th>}
+              {showQueue && <th className="py-4 px-4">Queue</th>}
               <th className="py-4 px-4 text-center">Actions</th>
             </tr>
           </thead>
@@ -90,6 +98,40 @@ export default function ProcessTable({
                     className="bg-slate-900/60 border border-white/10 focus:border-indigo-500 focus:shadow-glow rounded-xl p-2 w-28 text-center text-white font-mono outline-none transition-all duration-300"
                   />
                 </td>
+
+                {showPriority && (
+                  <td className="py-3 px-4">
+                    <input
+                      type="number"
+                      min="1"
+                      value={p.priority || 1}
+                      onChange={(e) => {
+                        const updated = [...processes];
+                        updated[i].priority = Math.max(1, Number(e.target.value));
+                        setProcesses(updated);
+                      }}
+                      className="bg-slate-900/60 border border-white/10 focus:border-indigo-500 focus:shadow-glow rounded-xl p-2 w-28 text-center text-white font-mono outline-none transition-all duration-300"
+                      title="Lower number = Higher Priority"
+                    />
+                  </td>
+                )}
+
+                {showQueue && (
+                  <td className="py-3 px-4">
+                    <select
+                      value={p.queue || 1}
+                      onChange={(e) => {
+                        const updated = [...processes];
+                        updated[i].queue = Number(e.target.value);
+                        setProcesses(updated);
+                      }}
+                      className="bg-slate-900/60 border border-white/10 focus:border-indigo-500 focus:shadow-glow rounded-xl p-2 w-32 text-center text-white font-mono outline-none transition-all duration-300 cursor-pointer"
+                    >
+                      <option value={1}>Queue 1 (High)</option>
+                      <option value={2}>Queue 2 (Low)</option>
+                    </select>
+                  </td>
+                )}
 
                 <td className="py-3 px-4 text-center">
                   <button

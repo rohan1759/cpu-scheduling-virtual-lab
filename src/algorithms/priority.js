@@ -1,9 +1,10 @@
-export const sjfScheduling = (processes) => {
+export const priorityScheduling = (processes, config = { preemptive: false }) => {
   let list = processes.map((p) => ({
     ...p,
     arrivalTime: Number(p.arrivalTime),
     burstTime: Number(p.burstTime),
     remainingTime: Number(p.burstTime),
+    priority: p.priority !== undefined ? Number(p.priority) : 1,
     startTime: undefined,
     completionTime: undefined,
     turnaroundTime: undefined,
@@ -19,30 +20,41 @@ export const sjfScheduling = (processes) => {
   let running = null;
 
   while (remaining.length > 0) {
-    // If CPU is idle, select next process in SJF order
-    if (!running) {
-      const arrived = remaining.filter((p) => p.arrivalTime <= t);
-      if (arrived.length > 0) {
-        // Sort by burstTime, then arrivalTime, then PID
-        arrived.sort((a, b) => {
-          if (a.burstTime !== b.burstTime) {
-            return a.burstTime - b.burstTime;
-          }
-          if (a.arrivalTime !== b.arrivalTime) {
-            return a.arrivalTime - b.arrivalTime;
-          }
-          return a.pid.localeCompare(b.pid);
-        });
-        running = arrived[0];
+    const arrived = remaining.filter((p) => p.arrivalTime <= t);
+
+    let selected = null;
+    if (arrived.length > 0) {
+      // Sort by priority (lower number = higher priority), then arrival time, then PID
+      arrived.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        if (a.arrivalTime !== b.arrivalTime) {
+          return a.arrivalTime - b.arrivalTime;
+        }
+        return a.pid.localeCompare(b.pid);
+      });
+
+      if (config.preemptive) {
+        selected = arrived[0];
+      } else {
+        // Non-preemptive: if a process is already running, continue running it
+        if (running && running.remainingTime > 0) {
+          selected = running;
+        } else {
+          selected = arrived[0];
+        }
       }
     }
 
-    // Capture snapshot at tick t
+    running = selected;
+
+    // Capture ready queue state (excluding running process)
     const readyQueue = remaining
       .filter((p) => p.arrivalTime <= t && p !== running)
       .sort((a, b) => {
-        if (a.burstTime !== b.burstTime) {
-          return a.burstTime - b.burstTime;
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
         }
         if (a.arrivalTime !== b.arrivalTime) {
           return a.arrivalTime - b.arrivalTime;

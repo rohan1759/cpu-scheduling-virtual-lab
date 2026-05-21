@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Clock, Zap, AlertTriangle, Activity } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Clock, Zap, AlertTriangle, Activity, Settings, ShieldAlert, BookOpen, GraduationCap } from "lucide-react";
 
 const cards = [
   {
@@ -17,24 +18,26 @@ const cards = [
     color: "text-indigo-400 bg-indigo-500/5 border-indigo-500/10",
   },
   {
-    title: "Convoy Effect",
+    title: "Round Robin (RR)",
     content:
-      "A phenomenon in FCFS where a CPU-bound process blocks several shorter I/O-bound processes, slowing down the overall system performance.",
-    icon: Activity,
-    color: "text-rose-400 bg-rose-500/5 border-rose-500/10",
+      "Allocates a fixed time quantum to each process cyclically. Designed for time-sharing systems, it achieves great response times but introduces context switching overhead.",
+    icon: Settings,
+    color: "text-emerald-400 bg-emerald-500/5 border-emerald-500/10",
   },
   {
-    title: "Starvation",
+    title: "Adaptive Feedback Queues",
     content:
-      "A scheduling issue where low-priority or longer burst-time processes are delayed indefinitely because shorter jobs are continually arriving and scheduled.",
-    icon: AlertTriangle,
-    color: "text-amber-400 bg-amber-500/5 border-amber-500/10",
+      "MLFQ allows processes to move between queues. Short/IO-bound tasks stay high while CPU-heavy tasks are demoted, optimizing system performance dynamically.",
+    icon: Activity,
+    color: "text-purple-400 bg-purple-500/5 border-purple-500/10",
   },
 ];
 
 export default function TheoryCards() {
+  const navigate = useNavigate();
+
   return (
-    <section id="theory-section" className="relative max-w-7xl mx-auto scroll-mt-20 fluid-container">
+    <section id="theory-section" className="relative max-w-7xl mx-auto scroll-mt-20 fluid-container space-y-12 pb-12">
       <div className="text-center mb-12">
         <h2 className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
           Core OS Theory & Concepts
@@ -44,7 +47,7 @@ export default function TheoryCards() {
         </p>
       </div>
 
-      <div className="theory-grid-layout">
+      <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
         {cards.map((card, i) => {
           const Icon = card.icon;
           return (
@@ -58,16 +61,35 @@ export default function TheoryCards() {
                 <Icon size={24} />
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-bold mb-3 text-white">
+                <h3 className="text-xl font-bold mb-3 text-white">
                   {card.title}
                 </h3>
-                <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-sans">
+                <p className="text-slate-400 text-sm leading-relaxed font-sans">
                   {card.content}
                 </p>
               </div>
             </motion.div>
           );
         })}
+      </div>
+
+      {/* Navigation Call to Actions */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-8">
+        <button
+          onClick={() => navigate("/theory")}
+          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        >
+          <BookOpen size={16} />
+          View Complete Guide
+        </button>
+        
+        <button
+          onClick={() => navigate("/viva")}
+          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        >
+          <GraduationCap size={16} />
+          Launch Viva Quiz Deck
+        </button>
       </div>
     </section>
   );

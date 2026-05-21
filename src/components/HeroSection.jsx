@@ -40,7 +40,7 @@ export default function HeroSection() {
           transition={{ delay: 0.3, duration: 0.8 }}
           className="mt-6 text-slate-400 max-w-2xl font-normal leading-relaxed fluid-subtitle"
         >
-          Master process synchronization, scheduling queues, and timeline execution through our rich interactive FCFS and SJF simulators.
+          Master process synchronization, scheduling queues, and timeline execution through our rich interactive FCFS, SJF, SRTF, RR, Priority, MLQ, and MLFQ simulators.
         </motion.p>
 
         {/* Action Buttons */}
@@ -59,10 +59,7 @@ export default function HeroSection() {
           </button>
           
           <button
-            onClick={() => {
-              const el = document.getElementById("theory-section");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
+            onClick={() => navigate("/theory")}
             className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-slate-900/60 hover:bg-slate-800/80 font-bold border border-white/10 hover:scale-105 active:scale-95 transition-all text-slate-300 cursor-pointer"
           >
             <BookOpen size={18} />

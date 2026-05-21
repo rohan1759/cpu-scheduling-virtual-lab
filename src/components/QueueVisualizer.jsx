@@ -2,9 +2,70 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Inbox } from "lucide-react";
 
 export default function QueueVisualizer({ queue }) {
+  // Helper to check if queue is an object containing multiple queues
+  const isMultiQueue = queue && !Array.isArray(queue) && typeof queue === "object";
+
+  const renderQueueRow = (pids, label, subtitle) => {
+    // Lookup process details if available (we will just display the PIDs as cards)
+    return (
+      <div className="space-y-2 border-b border-white/5 pb-4 last:border-b-0 last:pb-0">
+        <div className="flex justify-between items-center px-1">
+          <span className="text-xs uppercase font-extrabold tracking-wider text-indigo-400 font-sans">
+            {label}
+          </span>
+          <span className="text-[10px] text-slate-500 font-semibold font-mono">
+            {subtitle} ({pids.length} waiting)
+          </span>
+        </div>
+
+        {pids.length === 0 ? (
+          <p className="text-slate-600 italic text-left py-2 text-xs font-semibold pl-2">
+            Empty
+          </p>
+        ) : (
+          <div className="flex items-center gap-2 overflow-x-auto py-2 px-1 scrollbar-thin">
+            {pids.map((pid, i) => {
+              const isHead = i === 0;
+              const isTail = i === pids.length - 1;
+              return (
+                <div key={pid} className="flex items-center gap-2 flex-shrink-0">
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className={`px-4 py-2.5 rounded-xl border flex items-center justify-center font-mono font-extrabold text-sm relative ${
+                      isHead
+                        ? "border-cyan-500 bg-cyan-950/20 text-cyan-300 shadow-[inset_0_0_12px_rgba(6,182,212,0.1)]"
+                        : "border-white/10 bg-slate-900/40 text-slate-400"
+                    }`}
+                  >
+                    <span>{pid}</span>
+                    {isHead && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-cyan-500 text-slate-950 font-sans text-[8px] px-1 rounded-md uppercase font-black">
+                        HEAD
+                      </span>
+                    )}
+                  </motion.div>
+
+                  {!isTail && (
+                    <div className="text-slate-700 flex items-center justify-center">
+                      <ArrowLeft size={12} className="animate-pulse" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="glass p-6 sm:p-8 rounded-3xl border border-white/5 shadow-glow/5 relative overflow-hidden w-full">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="glass p-6 sm:p-8 rounded-3xl border border-white/5 shadow-glow/5 relative overflow-hidden w-full space-y-4">
+      <div className="flex items-center gap-3">
         <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
           <Inbox size={20} />
         </div>
@@ -18,55 +79,28 @@ export default function QueueVisualizer({ queue }) {
         </div>
       </div>
 
-      {queue.length === 0 ? (
-        <p className="text-slate-500 italic text-center py-4 text-sm font-semibold">Ready Queue is currently empty.</p>
-      ) : (
-        <div className="flex items-center gap-4 overflow-x-auto py-4 px-2">
-          {queue.map((p, i) => {
-            const isHead = i === 0;
-            const isTail = i === queue.length - 1;
-            return (
-              <div key={p.pid} className="flex items-center gap-4 flex-shrink-0">
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                  className={`p-4 rounded-2xl border flex flex-col justify-between w-32 h-28 relative ${
-                    isHead
-                      ? "border-cyan-500 bg-cyan-950/20 text-cyan-300 shadow-[inset_0_0_12px_rgba(6,182,212,0.15)]"
-                      : "border-white/10 bg-slate-900/40 text-slate-300"
-                  }`}
-                >
-                  {/* Position Badge */}
-                  <span className={`absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    isHead 
-                      ? "bg-cyan-500/20 text-cyan-400" 
-                      : isTail 
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-white/5 text-slate-400"
-                  }`}>
-                    {isHead ? "Head" : isTail ? "Tail" : `Pos ${i + 1}`}
-                  </span>
-
-                  <span className="text-xl font-extrabold font-mono">{p.pid}</span>
-
-                  <div className="mt-2 text-[10px] text-slate-400 font-mono space-y-0.5">
-                    <div>Arr: <span className="text-slate-200 font-bold">{p.arrivalTime}s</span></div>
-                    <div>Burst: <span className="text-slate-200 font-bold">{p.burstTime}s</span></div>
-                  </div>
-                </motion.div>
-
-                {!isTail && (
-                  <div className="text-slate-600 flex items-center justify-center">
-                    <ArrowLeft size={18} className="animate-pulse" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-4 pt-2">
+        {isMultiQueue ? (
+          <>
+            {queue.q0 !== undefined ? (
+              // MLFQ
+              <>
+                {renderQueueRow(queue.q0, "Queue 0 (High)", "RR (Quantum = 2)")}
+                {renderQueueRow(queue.q1, "Queue 1 (Medium)", "RR (Quantum = 4)")}
+                {renderQueueRow(queue.q2, "Queue 2 (Low)", "FCFS")}
+              </>
+            ) : (
+              // MLQ
+              <>
+                {renderQueueRow(queue.q1 || [], "Queue 1 (High)", "RR (Quantum = 2)")}
+                {renderQueueRow(queue.q2 || [], "Queue 2 (Low)", "FCFS")}
+              </>
+            )}
+          </>
+        ) : (
+          renderQueueRow(Array.isArray(queue) ? queue : [], "Ready Queue", "Main Queue")
+        )}
+      </div>
     </div>
   );
 }

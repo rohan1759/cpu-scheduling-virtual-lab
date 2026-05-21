@@ -1,4 +1,4 @@
-export const sjfScheduling = (processes) => {
+export const srtfScheduling = (processes) => {
   let list = processes.map((p) => ({
     ...p,
     arrivalTime: Number(p.arrivalTime),
@@ -19,30 +19,31 @@ export const sjfScheduling = (processes) => {
   let running = null;
 
   while (remaining.length > 0) {
-    // If CPU is idle, select next process in SJF order
-    if (!running) {
-      const arrived = remaining.filter((p) => p.arrivalTime <= t);
-      if (arrived.length > 0) {
-        // Sort by burstTime, then arrivalTime, then PID
-        arrived.sort((a, b) => {
-          if (a.burstTime !== b.burstTime) {
-            return a.burstTime - b.burstTime;
-          }
-          if (a.arrivalTime !== b.arrivalTime) {
-            return a.arrivalTime - b.arrivalTime;
-          }
-          return a.pid.localeCompare(b.pid);
-        });
-        running = arrived[0];
-      }
+    const arrived = remaining.filter((p) => p.arrivalTime <= t);
+
+    let selected = null;
+    if (arrived.length > 0) {
+      // Choose process with minimum remaining time
+      arrived.sort((a, b) => {
+        if (a.remainingTime !== b.remainingTime) {
+          return a.remainingTime - b.remainingTime;
+        }
+        if (a.arrivalTime !== b.arrivalTime) {
+          return a.arrivalTime - b.arrivalTime;
+        }
+        return a.pid.localeCompare(b.pid);
+      });
+      selected = arrived[0];
     }
 
-    // Capture snapshot at tick t
+    running = selected;
+
+    // Capture ready queue state (excluding running process)
     const readyQueue = remaining
       .filter((p) => p.arrivalTime <= t && p !== running)
       .sort((a, b) => {
-        if (a.burstTime !== b.burstTime) {
-          return a.burstTime - b.burstTime;
+        if (a.remainingTime !== b.remainingTime) {
+          return a.remainingTime - b.remainingTime;
         }
         if (a.arrivalTime !== b.arrivalTime) {
           return a.arrivalTime - b.arrivalTime;
@@ -104,7 +105,6 @@ export const sjfScheduling = (processes) => {
         running.waitingTime = running.turnaroundTime - running.burstTime;
         result.push(running);
         remaining = remaining.filter((p) => p.pid !== running.pid);
-        running = null;
       }
     }
 
