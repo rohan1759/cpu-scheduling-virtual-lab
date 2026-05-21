@@ -10,6 +10,29 @@
     color: #F8FAFC;
     overflow-x: hidden;
     scroll-behavior: smooth;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  input, textarea {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* Responsive utility for page containers */
+  .responsive-page {
+    overflow-y: auto;
+    max-height: calc(100vh - 4rem);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure dashboard grids can scroll horizontally on small screens */
+  .dashboard-grid-layout {
+    overflow-x: auto;
   }
 
   h1, h2, h3, h4, h5, h6 {

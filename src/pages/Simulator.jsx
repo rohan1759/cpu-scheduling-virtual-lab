@@ -17,7 +17,7 @@ import { priorityScheduling } from "../algorithms/priority";
 import { mlqScheduling } from "../algorithms/mlq";
 import { mlfqScheduling } from "../algorithms/mlfq";
 
-import { BookOpen, Table, FileSpreadsheet, Printer, Award, LayoutDashboard, Sparkles } from "lucide-react";
+import { Table, FileSpreadsheet, Printer, Award, LayoutDashboard, Sparkles } from "lucide-react";
 
 const PRESETS = {
   balanced: [
@@ -535,10 +535,10 @@ export default function Simulator() {
 
         {/* Tab 2: Algorithm Comparison Mode */}
         {activeTab === "comparison" && (
-          <div className="space-y-8">
-            <div className="grid lg:grid-cols-3 gap-8 items-start">
+          <div className="space-y-8 max-w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start min-w-0">
               {/* Left: Process configuration */}
-              <div className="lg:col-span-1 space-y-6">
+              <div className="lg:col-span-1 space-y-6 min-w-0">
                 <ProcessTable
                   processes={processes}
                   setProcesses={setProcesses}
@@ -546,7 +546,7 @@ export default function Simulator() {
                 />
 
                 {bestAlgorithm && (
-                  <div className="glass rounded-3xl p-6 border border-emerald-500/20 bg-emerald-500/5 relative overflow-hidden shadow-glow-emerald/5 flex gap-4 items-start">
+                  <div className="glass rounded-3xl p-6 border border-emerald-500/20 bg-emerald-500/5 relative overflow-hidden shadow-glow-emerald/5 flex flex-col gap-4 items-start min-w-0">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mt-1">
                       <Award size={20} />
                     </div>
@@ -561,18 +561,20 @@ export default function Simulator() {
               </div>
 
               {/* Right: Charts and Analysis */}
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2 space-y-8 min-w-0">
                 {/* Bar chart comparison */}
-                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5 relative overflow-hidden w-full h-[400px] flex flex-col">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles size={18} className="text-indigo-400" />
-                    <h3 className="text-lg font-bold text-white">Algorithm Performance Comparison</h3>
+                <div className="glass rounded-3xl p-5 sm:p-8 border border-white/5 shadow-glow/5 relative overflow-hidden w-full h-[300px] sm:h-[360px] md:h-[420px] flex flex-col min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={18} className="text-indigo-400" />
+                      <h3 className="text-base sm:text-lg font-bold text-white">Algorithm Performance Comparison</h3>
+                    </div>
                   </div>
                   <div className="flex-grow min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={comparisonData}
-                        margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                        margin={{ top: 16, right: 20, left: 0, bottom: 8 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155/20" vertical={false} />
                         <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} fontWeight="bold" />
@@ -592,10 +594,10 @@ export default function Simulator() {
                 </div>
 
                 {/* Metrics Table Grid */}
-                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5">
+                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5 max-w-full overflow-x-auto">
                   <h3 className="text-lg font-bold text-white mb-6">Metrics Comparison Table</h3>
                   <div className="overflow-x-auto scrollbar-thin">
-                    <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                    <table className="w-full min-w-[520px] text-left border-collapse text-xs sm:text-sm">
                       <thead>
                         <tr className="border-b border-white/10 text-slate-500 font-bold uppercase tracking-wider text-2xs">
                           <th className="py-3 px-4">Algorithm</th>

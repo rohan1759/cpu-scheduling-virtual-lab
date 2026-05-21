@@ -80,14 +80,14 @@ export default function Theory() {
   const [activeTab, setActiveTab] = useState("FCFS");
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#050814] pb-20">
+    <div className="min-h-screen bg-[#050814] pb-20">
       {/* Background Glowing Orbs */}
       <div className="bg-glow-orb orb-primary top-10 left-10 animate-float" />
       <div className="bg-glow-orb orb-secondary bottom-10 right-10" />
 
       <Navbar />
 
-      <div className="max-w-7xl mx-auto relative z-10 space-y-12 fluid-container">
+      <div className="max-w-7xl mx-auto relative z-10 space-y-12 fluid-container px-4">
         {/* Header Title Section */}
         <div className="text-center space-y-4">
           <div className="px-4 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-xs font-bold uppercase tracking-wider inline-block">

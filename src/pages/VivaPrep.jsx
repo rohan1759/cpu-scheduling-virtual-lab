@@ -85,7 +85,7 @@ export default function VivaPrep() {
   const reviewCount = masteredList.filter((m) => m === "no").length;
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#050814] pb-20">
+    <div className="min-h-screen relative overflow-auto responsive-page bg-[#050814] pb-20">
       {/* Background Glowing Orbs */}
       <div className="bg-glow-orb orb-primary top-10 left-10 animate-float" />
       <div className="bg-glow-orb orb-secondary bottom-10 right-10" />
