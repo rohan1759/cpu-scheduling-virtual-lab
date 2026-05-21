@@ -1,9 +1,10 @@
+import React from "react";
 import { Calendar } from "lucide-react";
 
 export default function GanttChart({ timeline = [], currentTick = null }) {
   const getGanttBlocks = () => {
     if (!timeline || timeline.length === 0) return [];
-    
+
     // Sort execution segments by start time
     const sorted = [...timeline].sort((a, b) => a.startTime - b.startTime);
     const blocks = [];
@@ -32,88 +33,104 @@ export default function GanttChart({ timeline = [], currentTick = null }) {
 
   const blocks = getGanttBlocks();
   const scale = 40; // 40px per second representation
-
-  // Calculate total time
   const totalTime = blocks.length > 0 ? blocks[blocks.length - 1].completionTime : 0;
 
+  // Generate ruler tick numbers
+  const rulerTicks = [];
+  for (let t = 0; t <= Math.max(18, totalTime); t++) {
+    rulerTicks.push(t);
+  }
+
+  // Color mappings for dynamic Gantt blocks
+  const getBlockStyles = (pid) => {
+    switch (pid) {
+      case "P1": return "bg-blue-600/80 border-blue-500/40 text-blue-100 shadow-[inset_0_0_8px_rgba(59,130,246,0.2)]";
+      case "P2": return "bg-emerald-600/80 border-emerald-500/40 text-emerald-100 shadow-[inset_0_0_8px_rgba(16,185,129,0.2)]";
+      case "P3": return "bg-amber-600/80 border-amber-500/40 text-amber-100 shadow-[inset_0_0_8px_rgba(245,158,11,0.2)]";
+      case "P4": return "bg-purple-600/80 border-purple-500/40 text-purple-100 shadow-[inset_0_0_8px_rgba(139,92,246,0.2)]";
+      default: return "bg-slate-800/60 border-slate-700/40 text-slate-400";
+    }
+  };
+
   return (
-    <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5 relative overflow-hidden w-full">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          <Calendar size={20} />
+    <div className="glass rounded-2xl p-3 border border-white/5 shadow-glow/5 relative overflow-hidden w-full flex flex-col justify-between h-full min-h-[200px] max-h-[150px]">
+      {/* Header */}
+      <div className="flex items-start gap-2 shrink-0 mb-1">
+        <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
+          <Calendar size={12} />
         </div>
         <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-white font-sans">
-            Gantt Timeline Chart
+          <h2 className="text-xs sm:text-sm font-extrabold text-white font-sans tracking-tight">
+            Gantt Timeline
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Chronological sequence of scheduled operations and idle cycles (scaled by duration).
+          <p className="text-[9px] text-slate-400 mt-0.5 leading-tight font-sans">
+            Chronological sequence of scheduled operations.
           </p>
         </div>
       </div>
 
+      {/* Main Gantt Scroller */}
       {blocks.length === 0 ? (
-        <p className="text-slate-500 italic text-center py-4 text-sm font-semibold">
-          No data to display. Start simulation to render the Gantt chart timeline.
-        </p>
+        <div className="flex-grow flex items-center justify-center py-3 border border-dashed border-slate-800 rounded-xl">
+          <p className="text-slate-500 italic text-2xs font-semibold">
+            No data to display. Start simulation to render the Gantt chart.
+          </p>
+        </div>
       ) : (
-        <div className="overflow-x-auto pb-12 pt-6 px-6 scrollbar-thin">
-          <div 
-            className="relative flex items-stretch border border-white/10 rounded-2xl overflow-hidden bg-slate-950/20"
-            style={{ width: `${totalTime * scale}px`, minHeight: "80px" }}
-          >
-            {/* Sliding Playhead Cursor */}
-            {currentTick !== null && currentTick !== undefined && currentTick <= totalTime && (
-              <div 
-                className="absolute top-0 bottom-0 w-[3px] bg-cyan-400 shadow-[0_0_12px_#22d3ee] z-20 transition-all duration-300"
-                style={{ left: `${currentTick * scale}px` }}
-              >
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-400 shadow-glow-cyan" />
-              </div>
-            )}
+        <div className="flex-grow flex flex-col justify-between overflow-x-auto scrollbar-dense pr-1 py-0.5">
+          {/* Scrollable Container */}
+          <div className="relative min-w-[760px] pb-4" style={{ width: `${Math.max(18, totalTime) * scale + 60}px` }}>
+            {/* Axis Ruler Header Row */}
+            <div className="relative h-5 border-b border-white/10 mb-1 flex items-end">
+              <span className="absolute -left-12 bottom-1 text-[8px] font-mono font-bold text-slate-500 uppercase tracking-widest leading-none">
+                Time (s)
+              </span>
 
-            {/* Gantt Segments */}
-            {blocks.map((b, i) => {
-              const duration = b.completionTime - b.startTime;
-              const width = duration * scale;
-
-              return (
+              {rulerTicks.map((t) => (
                 <div
-                  key={i}
-                  className="flex flex-col justify-center items-center relative border-r border-white/5 last:border-r-0 select-none group"
-                  style={{ width: `${width}px` }}
+                  key={t}
+                  className="absolute flex flex-col items-center justify-end"
+                  style={{ left: `${t * scale}px` }}
                 >
+                  <span className="text-[7px] font-mono font-black text-slate-500 leading-none mb-0.5">
+                    {t}
+                  </span>
+                  <div className="w-[1px] h-1 bg-slate-700" />
+                </div>
+              ))}
+            </div>
+
+            {/* Gantt Bars Row */}
+            <div className="relative h-8 flex rounded-lg border border-white/5 overflow-hidden bg-slate-950/20">
+              {/* Sliding Playhead Cursor */}
+              {currentTick !== null && currentTick !== undefined && currentTick <= totalTime && (
+                <div
+                  className="absolute top-0 bottom-0 w-[1px] border-l border-dashed border-red-500 z-20 pointer-events-none transition-all duration-300"
+                  style={{ left: `${currentTick * scale}px` }}
+                >
+                  <div className="absolute bottom-0 -left-[4.5px] playhead-triangle" />
+                </div>
+              )}
+
+              {/* Blocks */}
+              {blocks.map((b, i) => {
+                const duration = b.completionTime - b.startTime;
+                const width = duration * scale;
+
+                return (
                   <div
-                    className={`absolute inset-0 flex flex-col items-center justify-center font-mono font-extrabold text-sm transition-all duration-300 ${
-                      b.isIdle
-                        ? "bg-slate-900/10 text-slate-600 border-b-2 border-dashed border-slate-800"
-                        : "bg-gradient-to-tr from-indigo-500/10 to-cyan-500/15 text-cyan-300 shadow-[inset_0_0_12px_rgba(6,182,212,0.05)] border-b-2 border-cyan-500/30 hover:border-cyan-400"
-                    }`}
+                    key={i}
+                    className={`h-full flex flex-col items-center justify-center border-r border-white/5 last:border-r-0 select-none group font-mono font-black text-2xs cursor-default relative overflow-hidden transition-all duration-300 ${getBlockStyles(b.pid)}`}
+                    style={{ width: `${width}px` }}
                   >
                     <span>{b.pid}</span>
-                    <span className="text-[9px] font-normal text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {duration}s
+                    <span className="text-[7px] font-medium text-white/50 leading-none mt-0">
+                      ({b.startTime}-{b.completionTime})
                     </span>
                   </div>
-
-                  {/* Tick Marks and Labels */}
-                  <span className="absolute -bottom-6 left-0 -translate-x-1/2 text-[10px] font-bold text-slate-400 font-mono">
-                    {b.startTime}s
-                  </span>
-                  <div className="absolute -bottom-1.5 left-0 w-[1px] h-3 bg-white/20 -translate-x-1/2" />
-
-                  {/* Show end tick on the very last block */}
-                  {i === blocks.length - 1 && (
-                    <>
-                      <span className="absolute -bottom-6 right-0 translate-x-1/2 text-[10px] font-bold text-slate-400 font-mono">
-                        {b.completionTime}s
-                      </span>
-                      <div className="absolute -bottom-1.5 right-0 w-[1px] h-3 bg-white/20 translate-x-1/2" />
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

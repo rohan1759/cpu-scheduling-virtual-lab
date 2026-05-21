@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend as ChartLegend, ResponsiveContainer } from "recharts";
 import Navbar from "../components/Navbar";
 import ProcessTable from "../components/ProcessTable";
 import QueueVisualizer from "../components/QueueVisualizer";
@@ -7,7 +7,7 @@ import CPUVisualizer from "../components/CPUVisualizer";
 import GanttChart from "../components/GanttChart";
 import MetricsPanel from "../components/MetricsPanel";
 import ExecutionLog from "../components/ExecutionLog";
-import Controls from "../components/Controls";
+
 
 import { fcfsScheduling } from "../algorithms/fcfs";
 import { sjfScheduling } from "../algorithms/sjf";
@@ -17,7 +17,22 @@ import { priorityScheduling } from "../algorithms/priority";
 import { mlqScheduling } from "../algorithms/mlq";
 import { mlfqScheduling } from "../algorithms/mlfq";
 
-import { Table, FileSpreadsheet, Printer, Award, LayoutDashboard, Sparkles } from "lucide-react";
+import {
+  Table,
+  FileSpreadsheet,
+  Printer,
+  Award,
+  LayoutDashboard,
+  Play,
+  Pause,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  Sparkles
+} from "lucide-react";
 
 const PRESETS = {
   balanced: [
@@ -81,7 +96,7 @@ export default function Simulator() {
     if (isPlaying && simulationResult) {
       const baseDelay = 1000; // 1 second base tick duration
       const delay = baseDelay / speed;
-      
+
       intervalRef.current = setInterval(() => {
         setCurrentTick((prev) => {
           const maxTicks = simulationResult.ticks.length - 1;
@@ -175,7 +190,24 @@ export default function Simulator() {
     ? processes.find((p) => p.pid === runningPid)
     : null;
 
-  // Logs generator
+  // Remaining & Elapsed Burst Times for active process
+  const remainingBurst = (isSimulationActive && activeTickSnapshot && runningPid)
+    ? activeTickSnapshot.remainingBursts[runningPid]
+    : 0;
+  const elapsedTime = runningProcess ? (runningProcess.burstTime - remainingBurst) : 0;
+
+  // Dynamic CPU utilization up to current tick
+  const getUtilizationAtTick = () => {
+    if (!simulationResult || currentTick === 0) return 0;
+    let busy = 0;
+    for (let t = 0; t < currentTick; t++) {
+      if (simulationResult.ticks[t]?.running) busy++;
+    }
+    return Math.round((busy / currentTick) * 100);
+  };
+  const cpuUtilization = getUtilizationAtTick();
+
+  // Dynamic logs matching the "[00:xx] kernel:" format
   const logList = [];
   if (simulationResult && isSimulationActive) {
     let prevRunning = null;
@@ -185,18 +217,20 @@ export default function Simulator() {
       const snap = simulationResult.ticks[t];
       if (!snap) continue;
 
+      const ts = `[00:${String(t).padStart(2, "0")}] kernel:`;
+
       processes.forEach((p) => {
         if (p.arrivalTime === t) {
-          logList.push(`Process ${p.pid} arrived in system (Burst: ${p.burstTime}s).`);
+          logList.push(`${ts} Process ${p.pid} arrived in system (Burst: ${p.burstTime}s).`);
         }
       });
 
       const running = snap.running;
       if (running !== prevRunning) {
         if (running) {
-          logList.push(`CPU scheduled process ${running}.`);
+          logList.push(`${ts} CPU scheduled process ${running}.`);
         } else if (t < maxTicks) {
-          logList.push(`CPU Core is idle.`);
+          logList.push(`${ts} CPU Core is idle.`);
         }
         prevRunning = running;
       }
@@ -204,7 +238,7 @@ export default function Simulator() {
       simulationResult.processes.forEach((p) => {
         if (p.completionTime === t && !completedSet.has(p.pid)) {
           logList.push(
-            `Process ${p.pid} finished execution (TAT: ${p.turnaroundTime}s, WT: ${p.waitingTime}s).`
+            `${ts} Process ${p.pid} completed execution.`
           );
           completedSet.add(p.pid);
         }
@@ -212,7 +246,7 @@ export default function Simulator() {
     }
   }
 
-  // Algorithm comparison logic
+  // Algorithm comparison calculations
   const runComparison = () => {
     const list = [...processes];
     const getAvg = (res, field) => {
@@ -241,10 +275,32 @@ export default function Simulator() {
 
   const comparisonData = activeTab === "comparison" ? runComparison() : [];
 
-  // Best algorithm recommendation
-  const bestAlgorithm = activeTab === "comparison" && comparisonData.length > 0
-    ? [...comparisonData].sort((a, b) => a.AWT - b.AWT)[0]
-    : null;
+  // Best algorithm dynamic selection
+  const getBestAlgorithm = () => {
+    const list = [...processes];
+    const getAvg = (res, field) => {
+      const procs = res.processes;
+      return procs.reduce((a, b) => a + (b[field] || 0), 0) / procs.length;
+    };
+    const fcfsRes = fcfsScheduling(list);
+    const sjfRes = sjfScheduling(list);
+    const srtfRes = srtfScheduling(list);
+    const rrRes = rrScheduling(list, timeQuantum);
+    const priorityRes = priorityScheduling(list, { preemptive: priorityPreemptive });
+    const mlqRes = mlqScheduling(list);
+    const mlfqRes = mlfqScheduling(list);
+
+    const data = [
+      { name: "FCFS", AWT: getAvg(fcfsRes, "waitingTime") },
+      { name: "SJF", AWT: getAvg(sjfRes, "waitingTime") },
+      { name: "SRTF", AWT: getAvg(srtfRes, "waitingTime") },
+      { name: "RR", AWT: getAvg(rrRes, "waitingTime") },
+      { name: "Priority", AWT: getAvg(priorityRes, "waitingTime") },
+      { name: "MLQ", AWT: getAvg(mlqRes, "waitingTime") },
+      { name: "MLFQ", AWT: getAvg(mlfqRes, "waitingTime") },
+    ];
+    return [...data].sort((a, b) => a.AWT - b.AWT)[0];
+  };
 
   // Report Exporters
   const exportToCSV = () => {
@@ -320,7 +376,7 @@ export default function Simulator() {
             <div><strong>Total Execution Time:</strong> ${maxTicks} seconds</div>
             <div><strong>Generated On:</strong> ${new Date().toLocaleString()}</div>
           </div>
-          
+
           <h2>Process Completion Metrics</h2>
           <table>
             <thead>
@@ -371,47 +427,48 @@ export default function Simulator() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#050814] pb-24">
+    <div className="simulator-scroll h-screen max-h-screen overflow-x-hidden overflow-y-auto lg:overflow-y-hidden flex flex-col bg-[#02050f] text-slate-100 relative">
       {/* Background Glowing Orbs */}
-      <div className="bg-glow-orb orb-primary top-10 left-10 animate-float" />
-      <div className="bg-glow-orb orb-secondary bottom-10 right-10" />
+      <div className="bg-glow-orb orb-primary top-10 left-10 animate-float opacity-10 pointer-events-none" />
+      <div className="bg-glow-orb orb-secondary bottom-10 right-10 opacity-10 pointer-events-none" />
 
       <Navbar />
 
-      <div className="max-w-7xl mx-auto relative z-10 space-y-8 fluid-container">
+      {/* Main Workspace Outer Wrap */}
+      <div className="simulator-scroll flex-grow overflow-x-hidden overflow-y-auto lg:overflow-y-hidden flex flex-col justify-between p-2 gap-1.5 max-w-7xl mx-auto w-full z-10">
         {/* Header Block with Mode Toggle */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex justify-between items-center shrink-0">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+            <h1 className="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent leading-none">
               Scheduling Lab Simulator
             </h1>
-            <p className="text-slate-400 text-sm sm:text-base mt-1">
+            <p className="text-slate-500 text-[9px] sm:text-[10px] mt-0.5 font-sans leading-none">
               Visualize, analyze, and compare scheduling processes side-by-side.
             </p>
           </div>
 
-          {/* Mode Toggles */}
-          <div className="flex bg-slate-950/60 p-1.5 rounded-2xl border border-white/5 gap-1 shrink-0">
+          {/* Mode Toggle Buttons */}
+          <div className="flex bg-slate-950/60 p-1 rounded-xl border border-white/5 gap-1 shrink-0 scale-90 sm:scale-100">
             <button
               onClick={() => setActiveTab("simulator")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
                 activeTab === "simulator"
-                  ? "bg-indigo-500 text-white shadow-glow"
+                  ? "bg-indigo-600 text-white shadow-glow"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <LayoutDashboard size={14} />
+              <LayoutDashboard size={10} />
               Simulator Console
             </button>
             <button
               onClick={() => setActiveTab("comparison")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
                 activeTab === "comparison"
-                  ? "bg-indigo-500 text-white shadow-glow"
+                  ? "bg-indigo-600 text-white shadow-glow"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Table size={14} />
+              <Table size={10} />
               Algorithm Comparison
             </button>
           </div>
@@ -419,141 +476,301 @@ export default function Simulator() {
 
         {/* Tab 1: Simulator Console */}
         {activeTab === "simulator" && (
-          <>
-            {/* Presets & Exporters Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 glass rounded-2xl border border-white/5">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Preset Scenarios:</span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => loadPreset("balanced")}
-                    className="px-3.5 py-1.5 rounded-xl text-2xs font-bold bg-slate-900 border border-white/5 text-slate-300 hover:text-white hover:border-indigo-500/30 transition-all cursor-pointer"
+          <div className="flex-grow overflow-hidden flex flex-col justify-between gap-1.5">
+            {/* ROW 1: Preset & Strategies (Consolidated!) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-1 glass rounded-xl border border-white/5 shrink-0">
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Presets */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500 font-mono">
+                    Preset Scenario:
+                  </span>
+                  <select
+                    value={
+                      processes === PRESETS.balanced ? "balanced" :
+                      processes === PRESETS.convoy ? "convoy" :
+                      processes === PRESETS.priorityDemo ? "priorityDemo" : ""
+                    }
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        loadPreset(e.target.value);
+                      }
+                    }}
+                    className="bg-slate-950/60 border border-white/10 text-[10px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none cursor-pointer font-bold font-mono transition-all hover:bg-slate-900/80"
                   >
-                    Balanced Mix
-                  </button>
-                  <button
-                    onClick={() => loadPreset("convoy")}
-                    className="px-3.5 py-1.5 rounded-xl text-2xs font-bold bg-slate-900 border border-white/5 text-slate-300 hover:text-white hover:border-indigo-500/30 transition-all cursor-pointer"
-                    title="Long process starts first, causing conveyor effect"
+                    <option value="" disabled>Select Preset</option>
+                    <option value="balanced">Balanced Mix</option>
+                    <option value="convoy">Convoy Effect</option>
+                    <option value="priorityDemo">Priority Preemption</option>
+                  </select>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="hidden lg:block w-[1px] h-4 bg-white/10" />
+
+                {/* Scheduling Strategy Selection */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500 font-mono">
+                    Scheduling Strategy:
+                  </span>
+                  <select
+                    value={algorithm}
+                    onChange={(e) => {
+                      setAlgorithm(e.target.value);
+                      resetSimulation();
+                    }}
+                    className="bg-slate-950/60 border border-white/10 text-[10px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-blue-500 outline-none cursor-pointer font-bold font-mono transition-all hover:bg-slate-900/80"
                   >
-                    Convoy Effect
-                  </button>
-                  <button
-                    onClick={() => loadPreset("priorityDemo")}
-                    className="px-3.5 py-1.5 rounded-xl text-2xs font-bold bg-slate-900 border border-white/5 text-slate-300 hover:text-white hover:border-indigo-500/30 transition-all cursor-pointer"
-                  >
-                    Priority Preemption
-                  </button>
+                    <option value="FCFS">FCFS (First Come First Serve)</option>
+                    <option value="SJF">SJF (Shortest Job First)</option>
+                    <option value="SRTF">SRTF (Shortest Remaining Time First)</option>
+                    <option value="RR">RR (Round Robin)</option>
+                    <option value="Priority">Priority</option>
+                    <option value="MLQ">MLQ (Multi-Level Queue)</option>
+                    <option value="MLFQ">MLFQ (Multi-Level Feedback Queue)</option>
+                  </select>
+
+                  {/* Inline Quantum / Preemption Controls */}
+                  {algorithm === "RR" && (
+                    <div className="flex items-center gap-2 bg-indigo-500/5 border border-indigo-500/20 px-2 py-0.5 rounded-lg animate-fade-in">
+                      <span className="text-[8px] font-bold font-mono text-indigo-300">Quantum:</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={timeQuantum}
+                        onChange={(e) => {
+                          setTimeQuantum(Number(e.target.value));
+                          resetSimulation();
+                        }}
+                        className="w-12 accent-indigo-500 cursor-pointer h-1 rounded"
+                      />
+                      <span className="text-[9px] font-mono font-black text-indigo-400">{timeQuantum}s</span>
+                    </div>
+                  )}
+
+                  {algorithm === "Priority" && (
+                    <div className="flex items-center gap-1 bg-indigo-500/5 border border-indigo-500/20 p-0.5 rounded-lg animate-fade-in scale-90">
+                      <button
+                        onClick={() => {
+                          setPriorityPreemptive(false);
+                          resetSimulation();
+                        }}
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                          !priorityPreemptive ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        Non-Preempt
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPriorityPreemptive(true);
+                          resetSimulation();
+                        }}
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                          priorityPreemptive ? "bg-indigo-500 text-white shadow-glow" : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        Preemptive
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {isSimulationActive && (
+              {/* Exporters aligned far right */}
+              {/* {isSimulationActive && (
                 <div className="flex gap-2">
                   <button
                     onClick={exportToCSV}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-2xs font-bold text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5 hover:border-emerald-500/20 border border-white/5 bg-slate-900/60 cursor-pointer transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-2xs font-bold text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5 hover:border-emerald-500/20 border border-white/5 bg-slate-900/60 cursor-pointer transition-all"
                   >
-                    <FileSpreadsheet size={12} />
+                    <FileSpreadsheet size={10} />
                     Export CSV
                   </button>
                   <button
                     onClick={printReport}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-2xs font-bold text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500/20 border border-white/5 bg-slate-900/60 cursor-pointer transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-2xs font-bold text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500/20 border border-white/5 bg-slate-900/60 cursor-pointer transition-all"
                   >
-                    <Printer size={12} />
+                    <Printer size={10} />
                     Download PDF Report
                   </button>
+                </div>
+              )} */}
+            </div>
+
+            {/* ROW 2: Playback Controls (Consolidated!) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2 glass rounded-xl border border-white/5 shrink-0">
+              {/* Start & Reset */}
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={runSimulation}
+                  className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 font-medium hover:scale-[1.02] active:scale-95 transition-all shadow-glow text-slate-950 cursor-pointer text-xs"
+                >
+                  <Play size={10} className="fill-current" />
+                  {isSimulationActive ? "Re-Run" : "Run Simulation"}
+                </button>
+
+                <button
+                  onClick={resetSimulation}
+                  className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 font-medium border border-white/10 hover:scale-[1.02] active:scale-95 transition-all text-slate-300 cursor-pointer text-xs"
+                >
+                  <RotateCcw size={10} />
+                  Reset
+                </button>
+              </div>
+
+              {/* Center Playback Controls */}
+              {isSimulationActive && (
+                <div className="flex items-center gap-2 bg-slate-950/40 px-2 py-1 rounded-xl border border-white/5">
+                  {/* Skip to Start */}
+                  <button
+                    onClick={() => setCurrentTick(0)}
+                    disabled={currentTick === 0}
+                    className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer transition-all"
+                    title="Skip to Start"
+                  >
+                    <SkipBack size={12} />
+                  </button>
+
+                  {/* Step Back */}
+                  <button
+                    onClick={stepBackward}
+                    disabled={currentTick === 0}
+                    className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer transition-all"
+                    title="Step Backward"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+
+                  {/* Play / Pause */}
+                  <button
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center cursor-pointer shadow-[0_0_12px_#3b82f6] hover:scale-105 active:scale-95 transition-all"
+                    title={isPlaying ? "Pause Simulation" : "Play Simulation"}
+                  >
+                    {isPlaying ? <Pause size={10} className="fill-current" /> : <Play size={10} className="fill-current ml-0.5" />}
+                  </button>
+
+                  {/* Step Forward */}
+                  <button
+                    onClick={stepForward}
+                    disabled={currentTick >= maxTicks}
+                    className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer transition-all"
+                    title="Step Forward"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+
+                  {/* Skip to End */}
+                  <button
+                    onClick={() => setCurrentTick(maxTicks)}
+                    disabled={currentTick >= maxTicks}
+                    className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer transition-all"
+                    title="Skip to End"
+                  >
+                    <SkipForward size={12} />
+                  </button>
+
+                  {/* Speed Selector */}
+                  <div className="flex bg-slate-900/80 p-0.5 rounded border border-white/5 ml-1">
+                    {[0.5, 1, 2].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setSpeed(s)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold transition-all cursor-pointer ${
+                          speed === s
+                            ? "bg-slate-800 text-cyan-400 font-extrabold"
+                            : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        {s}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Right timeline Scrubber */}
+              {isSimulationActive && (
+                  <div className="flex items-center gap-3 flex-grow max-w-sm pl-3">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">
+                    Simulation Time: <strong className="text-cyan-400 font-extrabold">{currentTick}s / {maxTicks}s</strong>
+                  </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max={maxTicks}
+                      value={currentTick}
+                      onChange={(e) => setCurrentTick(Number(e.target.value))}
+                      className="flex-grow accent-cyan-400 bg-slate-950 border border-white/5 h-1 rounded-full appearance-none cursor-pointer"
+                    />
                 </div>
               )}
             </div>
 
-            {/* Playback Controls Component */}
-            <Controls
-              onStart={runSimulation}
-              onReset={resetSimulation}
-              algorithm={algorithm}
-              setAlgorithm={setAlgorithm}
-              isPlaying={isPlaying}
-              setIsPlaying={setIsPlaying}
-              currentTick={currentTick}
-              setCurrentTick={setCurrentTick}
-              maxTicks={maxTicks}
-              speed={speed}
-              setSpeed={setSpeed}
-              stepForward={stepForward}
-              stepBackward={stepBackward}
-              timeQuantum={timeQuantum}
-              setTimeQuantum={setTimeQuantum}
-              priorityPreemptive={priorityPreemptive}
-              setPriorityPreemptive={setPriorityPreemptive}
-              isSimulationActive={isSimulationActive}
-            />
+            {/* ROW 3: Core Simulation Cards Grid (1 row of 4 columns) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 shrink-0 overflow-hidden">
+              <ProcessTable
+                processes={processes}
+                setProcesses={setProcesses}
+                algorithm={algorithm}
+              />
 
-            {/* Dashboard grid layout */}
-            <div className="dashboard-grid-layout items-start">
-              {/* Left Column: Config and Metrics */}
-              <div className="col-span-full lg:col-span-7 space-y-8 min-w-0">
-                <ProcessTable
-                  processes={processes}
-                  setProcesses={setProcesses}
-                  algorithm={algorithm}
-                />
+              <CPUVisualizer
+                current={runningProcess}
+                status={isSimulationActive ? (runningProcess ? "Running" : "Idle") : "Stopped"}
+                remainingBurst={remainingBurst}
+                elapsedTime={elapsedTime}
+                utilization={cpuUtilization}
+              />
 
-                <MetricsPanel
-                  completed={simulationResult ? simulationResult.processes : []}
-                />
-              </div>
+              <QueueVisualizer
+                queue={
+                  isSimulationActive && activeTickSnapshot
+                    ? activeTickSnapshot.readyQueue
+                    : []
+                }
+              />
 
-              {/* Right Column: Active Simulation Vis Core */}
-              <div className="col-span-full lg:col-span-5 space-y-8 min-w-0">
-                <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-6">
-                  {/* CPU execution indicator */}
-                  <CPUVisualizer current={runningProcess} />
-
-                  {/* Active Ready Queue Status */}
-                  <QueueVisualizer
-                    queue={
-                      isSimulationActive && activeTickSnapshot
-                        ? activeTickSnapshot.readyQueue
-                        : []
-                    }
-                  />
-                </div>
-
-                {/* Console System Log output */}
-                <ExecutionLog logs={logList} />
-              </div>
+              <MetricsPanel
+                completed={simulationResult ? simulationResult.processes : []}
+                utilization={cpuUtilization}
+              />
             </div>
 
-            {/* Gantt Timeline */}
-            <GanttChart
-              timeline={simulationResult ? simulationResult.timeline : []}
-              currentTick={isSimulationActive ? currentTick : null}
-            />
-          </>
+            {/* ROW 4: Live Debugger + Gantt Chart Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 shrink-0">
+              <ExecutionLog logs={logList} />
+              <GanttChart
+                timeline={simulationResult ? simulationResult.timeline : []}
+                currentTick={isSimulationActive ? currentTick : null}
+              />
+            </div>
+          </div>
         )}
 
         {/* Tab 2: Algorithm Comparison Mode */}
         {activeTab === "comparison" && (
-          <div className="space-y-8 max-w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start min-w-0">
+          <div className="flex-grow overflow-y-auto pr-1 space-y-4 pt-1 scrollbar-dense">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
               {/* Left: Process configuration */}
-              <div className="lg:col-span-1 space-y-6 min-w-0">
+              <div className="lg:col-span-1 space-y-4">
                 <ProcessTable
                   processes={processes}
                   setProcesses={setProcesses}
                   algorithm={algorithm}
                 />
 
-                {bestAlgorithm && (
-                  <div className="glass rounded-3xl p-6 border border-emerald-500/20 bg-emerald-500/5 relative overflow-hidden shadow-glow-emerald/5 flex flex-col gap-4 items-start min-w-0">
-                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mt-1">
-                      <Award size={20} />
+                {getBestAlgorithm() && (
+                  <div className="glass rounded-2xl p-5 border border-emerald-500/20 bg-emerald-500/5 relative overflow-hidden shadow-glow-emerald/5 flex flex-col gap-3 items-start">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mt-1">
+                      <Award size={16} />
                     </div>
                     <div>
-                      <h4 className="text-base font-extrabold text-white">Efficiency Recommendation</h4>
-                      <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-sans">
-                        Based on the loaded processes, the most efficient algorithm is <strong className="text-emerald-400">{bestAlgorithm.name}</strong>, yielding an average waiting time of only <strong className="text-emerald-400">{bestAlgorithm.AWT.toFixed(2)}s</strong>.
+                      <h4 className="text-sm font-extrabold text-white font-sans tracking-tight">Efficiency Recommendation</h4>
+                      <p className="text-slate-400 text-xs mt-1 leading-relaxed font-sans">
+                        Based on the loaded processes, the most efficient algorithm is <strong className="text-emerald-400 font-extrabold font-sans">{getBestAlgorithm().name}</strong>, yielding an average waiting time of only <strong className="text-emerald-400 font-mono font-extrabold">{getBestAlgorithm().AWT.toFixed(2)}s</strong>.
                       </p>
                     </div>
                   </div>
@@ -561,58 +778,56 @@ export default function Simulator() {
               </div>
 
               {/* Right: Charts and Analysis */}
-              <div className="lg:col-span-2 space-y-8 min-w-0">
+              <div className="lg:col-span-2 space-y-4">
                 {/* Bar chart comparison */}
-                <div className="glass rounded-3xl p-5 sm:p-8 border border-white/5 shadow-glow/5 relative overflow-hidden w-full h-[300px] sm:h-[360px] md:h-[420px] flex flex-col min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2">
-                      <Sparkles size={18} className="text-indigo-400" />
-                      <h3 className="text-base sm:text-lg font-bold text-white">Algorithm Performance Comparison</h3>
-                    </div>
+                <div className="glass rounded-2xl p-5 border border-white/5 shadow-glow/5 relative overflow-hidden w-full h-[280px] flex flex-col">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles size={16} className="text-indigo-400" />
+                    <h3 className="text-sm sm:text-base font-extrabold text-white font-sans tracking-tight">Algorithm Performance Comparison</h3>
                   </div>
                   <div className="flex-grow min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={comparisonData}
-                        margin={{ top: 16, right: 20, left: 0, bottom: 8 }}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155/20" vertical={false} />
-                        <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} fontWeight="bold" />
-                        <YAxis stroke="#94a3b8" fontSize={11} label={{ value: 'Seconds', angle: -90, position: 'insideLeft', fill: '#94a3b8', offset: 10 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff/10" vertical={false} />
+                        <XAxis dataKey="name" stroke="#64748b" fontSize={9} fontWeight="bold" />
+                        <YAxis stroke="#64748b" fontSize={9} label={{ value: 'Seconds', angle: -90, position: 'insideLeft', fill: '#64748b', offset: 10 }} />
                         <Tooltip
-                          contentStyle={{ backgroundColor: "#0f172a", borderRadius: "16px", borderColor: "rgba(255,255,255,0.08)" }}
-                          itemStyle={{ fontSize: "12px", fontFamily: "monospace" }}
+                          contentStyle={{ backgroundColor: "#090e21", borderRadius: "12px", borderColor: "rgba(255,255,255,0.08)", fontSize: "10px" }}
+                          itemStyle={{ fontSize: "10px", fontFamily: "monospace" }}
                           labelStyle={{ fontWeight: "bold", color: "#818cf8" }}
                         />
-                        <Legend wrapperStyle={{ fontSize: "11px", fontWeight: "bold" }} />
-                        <Bar dataKey="AWT" fill="#22d3ee" name="Avg Waiting Time (AWT)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="ATT" fill="#c084fc" name="Avg Turnaround Time (ATT)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="ART" fill="#34d399" name="Avg Response Time (ART)" radius={[4, 4, 0, 0]} />
+                        <ChartLegend wrapperStyle={{ fontSize: "9px", fontWeight: "bold" }} />
+                        <Bar dataKey="AWT" fill="#22d3ee" name="Avg Waiting Time (AWT)" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="ATT" fill="#c084fc" name="Avg Turnaround Time (ATT)" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="ART" fill="#34d399" name="Avg Response Time (ART)" radius={[3, 3, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
                 {/* Metrics Table Grid */}
-                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/5 shadow-glow/5 max-w-full overflow-x-auto">
-                  <h3 className="text-lg font-bold text-white mb-6">Metrics Comparison Table</h3>
-                  <div className="overflow-x-auto scrollbar-thin">
-                    <table className="w-full min-w-[520px] text-left border-collapse text-xs sm:text-sm">
+                <div className="glass rounded-2xl p-5 border border-white/5 shadow-glow/5 w-full">
+                  <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight mb-4">Metrics Comparison Table</h3>
+                  <div className="overflow-x-auto scrollbar-dense">
+                    <table className="w-full min-w-[400px] text-left border-collapse text-2xs sm:text-xs">
                       <thead>
-                        <tr className="border-b border-white/10 text-slate-500 font-bold uppercase tracking-wider text-2xs">
-                          <th className="py-3 px-4">Algorithm</th>
-                          <th className="py-3 px-4 text-center">Avg Waiting Time (AWT)</th>
-                          <th className="py-3 px-4 text-center">Avg Turnaround Time (ATT)</th>
-                          <th className="py-3 px-4 text-center">Avg Response Time (ART)</th>
+                        <tr className="border-b border-white/10 text-slate-500 font-bold uppercase tracking-wider text-[9px]">
+                          <th className="py-2.5 px-3">Algorithm</th>
+                          <th className="py-2.5 px-3 text-center">Avg Waiting Time (AWT)</th>
+                          <th className="py-2.5 px-3 text-center">Avg Turnaround Time (ATT)</th>
+                          <th className="py-2.5 px-3 text-center">Avg Response Time (ART)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 text-slate-300 font-sans">
                         {comparisonData.map((row) => (
                           <tr key={row.name} className="hover:bg-white/5 transition-all">
-                            <td className="py-4 px-4 font-mono font-bold text-white">{row.name}</td>
-                            <td className="py-4 px-4 text-center font-mono text-cyan-400 font-bold">{row.AWT.toFixed(2)}s</td>
-                            <td className="py-4 px-4 text-center font-mono text-purple-400 font-bold">{row.ATT.toFixed(2)}s</td>
-                            <td className="py-4 px-4 text-center font-mono text-emerald-400 font-bold">{row.ART.toFixed(2)}s</td>
+                            <td className="py-2 px-3 font-mono font-bold text-white text-xs">{row.name}</td>
+                            <td className="py-2 px-3 text-center font-mono text-cyan-400 font-bold">{row.AWT.toFixed(2)}s</td>
+                            <td className="py-2 px-3 text-center font-mono text-purple-400 font-bold">{row.ATT.toFixed(2)}s</td>
+                            <td className="py-2 px-3 text-center font-mono text-emerald-400 font-bold">{row.ART.toFixed(2)}s</td>
                           </tr>
                         ))}
                       </tbody>
