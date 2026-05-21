@@ -427,7 +427,7 @@ export default function Simulator() {
   };
 
   return (
-    <div className="simulator-scroll h-screen max-h-screen overflow-x-hidden overflow-y-auto lg:overflow-y-hidden flex flex-col bg-[#02050f] text-slate-100 relative">
+    <div className="min-h-screen overflow-x-hidden flex flex-col bg-[#02050f] text-slate-100 relative">
       {/* Background Glowing Orbs */}
       <div className="bg-glow-orb orb-primary top-10 left-10 animate-float opacity-10 pointer-events-none" />
       <div className="bg-glow-orb orb-secondary bottom-10 right-10 opacity-10 pointer-events-none" />
@@ -435,7 +435,7 @@ export default function Simulator() {
       <Navbar />
 
       {/* Main Workspace Outer Wrap */}
-      <div className="simulator-scroll flex-grow overflow-x-hidden overflow-y-auto lg:overflow-y-hidden flex flex-col justify-between p-2 gap-1.5 max-w-7xl mx-auto w-full z-10">
+      <div className="flex flex-col justify-between p-2 gap-1.5 max-w-7xl mx-auto w-full z-10">
         {/* Header Block with Mode Toggle */}
         <div className="flex justify-between items-center shrink-0">
           <div>
